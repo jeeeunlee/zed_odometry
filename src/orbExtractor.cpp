@@ -15,15 +15,6 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
 
 int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image file path
 {
-//      Mat img_1 = imread ( argv[1], CV_LOAD_IMAGE_COLOR );
-//      Mat img_2 = imread ( argv[2], CV_LOAD_IMAGE_COLOR );
-
-    if ( argc != 3 )
-    {
-        cout<<"usage: orbExtractor calibration_file image_file_path"<<endl;
-        return 1;
-    }
-
     // Retrieve paths to images
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -36,6 +27,11 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
     {
         cerr << "ERROR: Failed to load images" << endl;
         return 1;
+    }
+    else
+    {
+        cout<<"nImages: "<< nImages <<endl;
+        cout<<"ex: vstrImageLeft[0]= "<< vstrImageLeft[0]<< endl;
     }
 
     // Main loop
@@ -55,8 +51,8 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
         /*  CV_LOAD_IMAGE_COLOR : 이미지 파일을 Color로 읽어들입니다. 투명한 부분은 무시되며, Default값입니다.
             CV_LOAD_IMAGE_GRAYSCALE : 이미지를 Grayscale로 읽어 들입니다. 실제 이미지 처리시 중간단계로 많이 사용합니다.
             CV_LOAD_IMAGE_UNCHANGED : 이미지파일을 alpha channel까지 포함하여 읽어 들입니다.    */        
-        imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_UNCHANGED); 
-        imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_COLOR); 
+        imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_COLOR);
 
         detector->detect ( imLeft, keypoints_left );
         detector->detect ( imRight, keypoints_right );
@@ -130,7 +126,7 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     for(int i=0; i<nTimes; i++)
     {
         stringstream ss;
-        ss << setfill('0') << setw(6) << i;
+        ss << setfill('0') << setw(6) << i+1;
         vstrImageLeft[i] = strPrefixLeft + ss.str() + ".png";
         vstrImageRight[i] = strPrefixRight + ss.str() + ".png";
     }
