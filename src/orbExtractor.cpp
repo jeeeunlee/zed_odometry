@@ -42,8 +42,6 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
     Ptr<DescriptorExtractor> descriptor = ORB::create();
     Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
     vector<DMatch> matches, good_matches;
-
-
     
     for(int ni=0; ni<nImages; ni++)
     {
@@ -60,36 +58,30 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
         descriptor->compute ( imLeft, keypoints_left, descriptors_left );
         descriptor->compute ( imRight, keypoints_right, descriptors_right );
 
-        // display
-        Mat outimg_left;
-        drawKeypoints( imLeft, keypoints_left, outimg_left, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-        imshow("ORB_left",outimg_left);
+        // display feature
+        //static Mat outimg_left;
+        //drawKeypoints( imLeft, keypoints_left, outimg_left, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+        //imshow("ORB_left",outimg_left);
 
-        //match
+        // extract match
         matcher->match ( descriptors_left, descriptors_right, matches );
-        static double min_dist=10000, max_dist=0;
-        for ( int i = 0; i < descriptors_left.rows; i++ )
+        
+        // extract good match using NNDR(Nearest Neighbour Distance Ratio) 
+        double ratio = 0.6;
+        std::vector< vector<DMatch > > nnMatches;
+        std::vector< DMatch > good_NNmatches;
+        matcher->knnMatch(descriptors_left, descriptors_right, nnMatches, 2);
+        for(int k = 0; k < nnMatches.size(); k++)
         {
-            double dist = matches[i].distance;
-            if ( dist < min_dist ) min_dist = dist;
-            if ( dist > max_dist ) max_dist = dist;
-        }
-        printf ( "-- Max dist : %f, Min dist : %f\n", max_dist, min_dist );
-
-        std::vector< DMatch > good_matches;
-        for ( int i = 0; i < descriptors_left.rows; i++ )
-        {
-            if ( matches[i].distance <= max(2*min_dist, 30.0) ) good_matches.push_back(matches[i]);
+            if(nnMatches[k][0].distance / nnMatches[k][1].distance < ratio)
+            {
+                good_NNmatches.push_back(nnMatches[k][0]);
+            }
         }
 
+        cout<< "# of good Matches: " << good_NNmatches.size() << " / Matches: " << matches.size() << endl;
 
-        static Mat img_match;
-        static Mat img_goodmatch;
-        drawMatches ( imLeft, keypoints_left, imRight, keypoints_right, matches, img_match );
-        drawMatches ( imLeft, keypoints_left, imRight, keypoints_right, good_matches, img_goodmatch );
-        imshow ( "img_match", img_match );
-        imshow ( "img_goodmatch", img_goodmatch );
-        waitKey(0);
+
     }   
     
     return 0;
