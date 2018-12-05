@@ -6,12 +6,24 @@ set( CMAKE_CXX_FLAGS "-std=c++11 -O3" )
 
 find_package( OpenCV 3.1 REQUIRED )
 
+
+
 include_directories( 
+    "include/zed_odometry"
     ${OpenCV_INCLUDE_DIRS} 
     ${G2O_INCLUDE_DIRS}
     ${CSPARSE_INCLUDE_DIR}
     "/usr/include/eigen3/"
 )
 
-add_executable( orbExtractor src/orbExtractor.cpp  )
-target_link_libraries( orbExtractor ${OpenCV_LIBS} )
+add_library( zed_odometry_lib
+    src/zed_frame.cpp
+)
+
+
+add_executable( zed_odometry src/zed_odometry.cpp  )
+
+target_link_libraries( zed_odometry 
+    zed_odometry_lib
+    ${OpenCV_LIBS} 
+)

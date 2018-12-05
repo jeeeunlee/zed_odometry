@@ -5,13 +5,17 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include "zed_frame.h"
+
 using namespace std;
 using namespace cv;
+// using namespace ORB_ODOMETRY;
 
+class Frame;
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
-
+void DrawImages(const string &title, const Frame &_frame);
 
 int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image file path
 {
@@ -35,13 +39,8 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
     }
 
     // Main loop
-    cv::Mat imLeft, imRight;
-    std::vector<KeyPoint> keypoints_left, keypoints_right;
-    Mat descriptors_left, descriptors_right;
-    Ptr<FeatureDetector> detector = ORB::create();
-    Ptr<DescriptorExtractor> descriptor = ORB::create();
-    Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
-    vector<DMatch> matches, good_matches;
+    Mat imLeft, imRight;
+    Frame mCurrentFrame;
     
     for(int ni=0; ni<nImages; ni++)
     {
@@ -51,35 +50,14 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
             CV_LOAD_IMAGE_UNCHANGED : 이미지파일을 alpha channel까지 포함하여 읽어 들입니다.    */        
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_COLOR); 
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_COLOR);
-
-        detector->detect ( imLeft, keypoints_left );
-        detector->detect ( imRight, keypoints_right );
         
-        descriptor->compute ( imLeft, keypoints_left, descriptors_left );
-        descriptor->compute ( imRight, keypoints_right, descriptors_right );
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], Frame::MatchingMethod::NNDR);
+        DrawImages("NNDR", mCurrentFrame);
 
-        // display feature
-        //static Mat outimg_left;
-        //drawKeypoints( imLeft, keypoints_left, outimg_left, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-        //imshow("ORB_left",outimg_left);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], Frame::MatchingMethod::RANSAC);
+        DrawImages("RANSAC", mCurrentFrame);
 
-        // extract match
-        matcher->match ( descriptors_left, descriptors_right, matches );
-        
-        // extract good match using NNDR(Nearest Neighbour Distance Ratio) 
-        double ratio = 0.6;
-        std::vector< vector<DMatch > > nnMatches;
-        std::vector< DMatch > good_NNmatches;
-        matcher->knnMatch(descriptors_left, descriptors_right, nnMatches, 2);
-        for(int k = 0; k < nnMatches.size(); k++)
-        {
-            if(nnMatches[k][0].distance / nnMatches[k][1].distance < ratio)
-            {
-                good_NNmatches.push_back(nnMatches[k][0]);
-            }
-        }
-
-        cout<< "# of good Matches: " << good_NNmatches.size() << " / Matches: " << matches.size() << endl;
+        waitKey(0);
 
 
     }   
@@ -87,6 +65,16 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
     return 0;
 }
 
+void DrawImages(const string &title, const Frame &_frame){
+
+    // Mat img;
+    // drawMatches ( _frame.mImgLeft, _frame.mKeypoints, _frame.mImgRight, _frame.mKeypointsRight, _frame.mMatches, img );
+    // imshow ( "matches", img );
+
+    Mat img_goodmatch;
+    drawMatches ( _frame.mImgLeft, _frame.mKeypoints, _frame.mImgRight, _frame.mKeypointsRight, _frame.mGoodMatches, img_goodmatch );
+    imshow ( title.c_str(), img_goodmatch );
+}
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps)
