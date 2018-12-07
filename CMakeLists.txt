@@ -18,6 +18,8 @@ include_directories(
 
 add_library( zed_odometry_lib
     src/zed_frame.cpp
+    src/zed_point3d.cpp
+    src/zed_param.cpp
 )
 
 

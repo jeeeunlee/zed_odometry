@@ -6,6 +6,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 #include "zed_frame.h"
+#include "zed_param.h"
 
 using namespace std;
 using namespace cv;
@@ -19,6 +20,9 @@ void DrawImages(const string &title, const Frame &_frame);
 
 int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image file path
 {
+    // set param
+    ZParam* param = ZParam::getInstance(argv[1]);
+
     // Retrieve paths to images
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -51,11 +55,14 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_COLOR); 
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_COLOR);
         
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], Frame::MatchingMethod::NNDR);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::NNDR);
         DrawImages("NNDR", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], Frame::MatchingMethod::RANSAC);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::RANSAC);
         DrawImages("RANSAC", mCurrentFrame);
+
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::DEFAULT);
+        DrawImages("DEFAULT", mCurrentFrame);
 
         waitKey(0);
 
@@ -73,6 +80,8 @@ void DrawImages(const string &title, const Frame &_frame){
 
     Mat img_goodmatch;
     drawMatches ( _frame.mImgLeft, _frame.mKeypoints, _frame.mImgRight, _frame.mKeypointsRight, _frame.mGoodMatches, img_goodmatch );
+    namedWindow(title.c_str(), WINDOW_NORMAL);
+    resizeWindow( title.c_str(), 1200, 400);
     imshow ( title.c_str(), img_goodmatch );
 }
 

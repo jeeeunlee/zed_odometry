@@ -3,17 +3,19 @@
 
 #include <vector>
 #include <opencv2/opencv.hpp>
+#include "zed_point3d.h"
 
-using namespace std;
-using namespace cv;
+// using namespace std;
+// using namespace cv;
 
 class Frame
 {
 public:
     enum MatchingMethod
     {
+        DEFAULT=0,
         NNDR=1,
-        RANSAC=2
+        RANSAC=2        
     };
 
 public:
@@ -23,10 +25,12 @@ public:
     Frame(const Frame &frame);
 
     // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, MatchingMethod method);
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, const std::string &source, MatchingMethod method);
 
     // get good matches
     void getGoodMatches(MatchingMethod method);
+    std::vector<cv::DMatch> getGoodMatches_NNDR(double nndr_threshold=NNDR_THRESHOLD);
+    std::vector<cv::DMatch> getGoodMatches_RANSAC(double error=1.1f, double confidence=0.995f);
 
 
 public:
@@ -53,35 +57,39 @@ public:
     float mb;
     */
 
+    ZParam* mParam;
+
+    PointReconstructor* mpPointReconstructor;
+
     // image
-    Mat mImgLeft, mImgRight;
+    cv::Mat mImgLeft, mImgRight;
 
     // matches between L&R
-    vector<DMatch> mMatches, mGoodMatches;
+    std::vector<cv::DMatch> mMatches, mGoodMatches;
 
     // Vector of keypoints
-    vector<KeyPoint> mKeypoints, mKeypointsRight;
+    std::vector<cv::KeyPoint> mKeypoints, mKeypointsRight;
 
     // ORB descriptor, each row associated to a keypoint.
-    Mat mDescriptors, mDescriptorsRight;
+    cv::Mat mDescriptors, mDescriptorsRight;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;
     long unsigned int mnId;
 
-    static double NNDRATIO;
+    static double NNDR_THRESHOLD;
 
-    static Ptr<FeatureDetector> mpDetector;
-    static Ptr<DescriptorExtractor> mpDescriptor;
-    static Ptr<DescriptorMatcher> mpMatcher;
+    static cv::Ptr<cv::FeatureDetector> mpDetector;
+    static cv::Ptr<cv::DescriptorExtractor> mpDescriptor;
+    static cv::Ptr<cv::DescriptorMatcher> mpMatcher;
 
 
 private:
     // Rotation, translation and camera center
-    Mat mRcw;
-    Mat mtcw;
-    Mat mRwc;
-    Mat mOw; //==mtwc
+    cv::Mat mRcw;
+    cv::Mat mtcw;
+    cv::Mat mRwc;
+    cv::Mat mOw; //==mtwc
 
 
 };
