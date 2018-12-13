@@ -25,12 +25,16 @@ public:
     Frame(const Frame &frame);
 
     // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, const std::string &source, MatchingMethod method);
+    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ZParam *param, MatchingMethod method);
 
-    // get good matches
-    void getGoodMatches(MatchingMethod method);
-    std::vector<cv::DMatch> getGoodMatches_NNDR(double nndr_threshold=NNDR_THRESHOLD);
-    std::vector<cv::DMatch> getGoodMatches_RANSAC(double error=1.1f, double confidence=0.995f);
+    // extract good matches
+    void extractGoodMatches(MatchingMethod method);
+    void extractGoodMatches_NNDR(const cv::Mat &descriptor1, const cv::Mat &descriptor2, std::vector<cv::DMatch> &output_matches, double ratio_threshold=NNDR_THRESHOLD);
+    void extractGoodMatches_FunMatRANSAC(const std::vector<cv::Point2f> &alinedPoints, const std::vector<cv::Point2f> &alinedPoints2, const std::vector<cv::DMatch> &matches, std::vector<cv::DMatch> &output_matches, double error=1.1f, double confidence=0.995f);
+
+    // get align keyPoints
+    void alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &out_kp1, std::vector<cv::Point2f> &out_kp2);
+    void alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::KeyPoint> &out_kp1, std::vector<cv::KeyPoint> &out_kp2);
 
 
 public:
@@ -57,9 +61,8 @@ public:
     float mb;
     */
 
-    ZParam* mParam;
-
-    PointReconstructor* mpPointReconstructor;
+    static ZParam* mParam;
+    static PointReconstructor* mpPointReconstructor;
 
     // image
     cv::Mat mImgLeft, mImgRight;

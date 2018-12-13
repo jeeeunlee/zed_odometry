@@ -20,19 +20,21 @@ public:
     PointReconstructor();
 
     // Copy constructor
-    PointReconstructor(const PointReconstructor &point3d);
+    // PointReconstructor(const PointReconstructor &point3d);
 
     // constructor
-    PointReconstructor(const std::string &source);
+    PointReconstructor(ZParam *param);
 
-    // compute for KeyPoint.
-    Point3D compute(const cv::KeyPoint &kpleft, const cv::KeyPoint &kpright);
+    // compute for KeyPoint
+    void compute(const std::vector<cv::Point2f> &kpleft, const std::vector<cv::Point2f> &kpright, std::vector<cv::Point3f> &kp3f);
 
-    // compute for Point2f.
-    Point3D compute(const cv::Point2f &p2left, const cv::Point2f &p2right);
+    // compute undistortKeyPoint
+    std::vector<cv::KeyPoint> UndistortKeyPoints(const std::vector<cv::KeyPoint> &mvKeys, const CALIBINFO &calibinfo, const cv::Mat &distCoeff);
 
     // get Calibration information
-    void getCalibInfo(const ZParam *param);
+    void getCalibInfo();
+
+    void printMatrix(const std::string &caption, const cv::Mat &MAT);
      
 
 public:
@@ -40,8 +42,9 @@ public:
     // static CALIBINFO LeftCalib, RightCalib;
 
     ZParam *mParam;
-    cv::Mat Kl, Kr;
-    cv::Mat HomoLtoR, HomoRtoL;
+    cv::Mat mKL, mKR;
+    cv::Mat mDistCoeffsL, mDistCoeffsR;
+    cv::Mat mHomoLtoR, mHomoRtoL;
     
 };
 

@@ -55,13 +55,13 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
         imLeft = cv::imread(vstrImageLeft[ni],CV_LOAD_IMAGE_COLOR); 
         imRight = cv::imread(vstrImageRight[ni],CV_LOAD_IMAGE_COLOR);
         
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::NNDR);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::NNDR);
         DrawImages("NNDR", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::RANSAC);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::RANSAC);
         DrawImages("RANSAC", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], argv[1], Frame::MatchingMethod::DEFAULT);
+        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::DEFAULT);
         DrawImages("DEFAULT", mCurrentFrame);
 
         waitKey(0);

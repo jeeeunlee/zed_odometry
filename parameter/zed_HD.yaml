@@ -39,7 +39,7 @@ Camera.fps: 15.0 # 15, 30, 60 fps available
 Camera.bf: 83.96868
 
 # stereo rodrigues notation
-Camera.CV: 0.00918222
+Camera.CV: 0.00918222 #RY
 Camera.RX: -0.00153492
 Camera.RZ: -0.000304831
 

@@ -24,7 +24,6 @@ private:
 public:
     static ZParam* getInstance(const std::string &source)
     {
-        std::cout<<"im here: getInstance"<<std::endl;
         static ZParam *zInstance = NULL;
         if(zInstance == NULL)
         {

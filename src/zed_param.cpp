@@ -38,4 +38,6 @@ void ZParam::initVariables()
     mRZ = fSettings["Camera.RZ"]; // RZ
 
     mBaseline = mBF/mCalibLeft.fx;
+
+    // fSettings.release();
 }
