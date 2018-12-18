@@ -7,6 +7,7 @@
 
 #include <opencv2/opencv.hpp>
 #include "zed_param.h"
+#include "zed_common.h"
 
 // using namespace std;
 // using namespace cv;
@@ -27,20 +28,20 @@ public:
     PointReconstructor(ZParam *param);
 
     // estimate camera pose from 3d point projection
-    void solvePnP(const std::vector<cv::Point3f> &keypoints3d, const std::vector<cv::Point2f> &keypoints2d, bool bleft=true);
+    void solvePnP(const V_POINT3F &keypoints3d, const V_POINT2F &keypoints2d, bool bleft=true);
 
     // compute for KeyPoint
-    void compute(const std::vector<cv::Point2f> &kpleft, const std::vector<cv::Point2f> &kpright, std::vector<cv::Point3f> &kp3f);
+    void compute(const V_POINT2F &kpleft, const V_POINT2F &kpright, V_POINT3F &kp3f);
 
     // compute undistortKeyPoint
-    std::vector<cv::KeyPoint> UndistortKeyPoints(const std::vector<cv::KeyPoint> &mvKeys, const CALIBINFO &calibinfo, const cv::Mat &distCoeff);
+    V_KEYPOINTS UndistortKeyPoints(const V_KEYPOINTS &mvKeys, const CALIBINFO &calibinfo, const cv::Mat &distCoeff);
 
     // get Calibration information
     void getCalibInfo();
 
     void printMatrix(const std::string &caption, const cv::Mat &MAT);
-    void save(const std::vector<cv::Point2f> &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
-    void save(const std::vector<cv::Point3f> &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
+    void save(const V_POINT2F &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
+    void save(const V_POINT3F &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
     void save(const cv::Mat &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
      
 
