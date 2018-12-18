@@ -9,6 +9,7 @@ find_package( OpenCV 3.1 REQUIRED )
 
 
 include_directories( 
+    ${PROJECT_SOURCE_DIR}
     "include/zed_odometry"
     ${OpenCV_INCLUDE_DIRS} 
     ${G2O_INCLUDE_DIRS}
@@ -20,6 +21,7 @@ add_library( zed_odometry_lib
     src/zed_frame.cpp
     src/zed_point3d.cpp
     src/zed_param.cpp
+    src/optimizer.cpp
 )
 
 

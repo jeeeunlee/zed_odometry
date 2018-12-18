@@ -30,7 +30,7 @@ Frame::Frame(const Frame &frame)
         mKeypointsRight[i]=frame.mKeypointsRight[i];
 }
 
-Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ZParam *param, Frame::MatchingMethod method)
+Frame::Frame(const IMAGE &imLeft, const IMAGE &imRight, const double &timeStamp, ZParam *param, Frame::MatchingMethod method)
     :mTimeStamp(timeStamp)
 {
     // This is done only for the first Frame (or after a change in the calibration)
@@ -59,8 +59,8 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
     // std::cout << "mKeypoints:" << mKeypoints.size() << std::endl;
     // std::cout << "mKeypointsRight:" << mKeypointsRight.size() << std::endl;
-    // std::cout << "mDescriptors:" << mDescriptors.size() << std::endl;
-    // std::cout << "mDescriptorsRight:" << mDescriptorsRight.size() << std::endl;
+    std::cout << "mDescriptors:" << mDescriptors.size() << std::endl;
+    std::cout << "mDescriptorsRight:" << mDescriptorsRight.size() << std::endl;
     
     // extract good matchs
     extractGoodMatches(method); //MatchingMethod::NNDR, MatchingMethod::RANSAC    
@@ -68,46 +68,51 @@ Frame::Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeSt
 
 void Frame::extractGoodMatches(MatchingMethod method)
 {
+    extractGoodMatches(method, mDescriptors, mDescriptorsRight, mKeypoints, mKeypointsRight, mMatches, mGoodMatches);
+}
+
+void Frame::extractGoodMatches(MatchingMethod method, const DESCRIPTORS &dcr1, const DESCRIPTORS &dcr2, const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &inputMatches, V_MATCHES &outputGoodMatches)
+{
     switch (method)
     {
         case MatchingMethod::NNDR : // extract good match using NNDR(Nearest Neighbour Distance Ratio)            
-            extractGoodMatches_NNDR(mDescriptors, mDescriptorsRight, mGoodMatches, 0.8);
-            std::cout<< "NNDR: # of good Matches: " << mGoodMatches.size() << " / Matches: " << mMatches.size() << std::endl;
+            extractGoodMatches_NNDR(dcr1, dcr2, outputGoodMatches, 0.8);
+            std::cout<< "NNDR: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
             break;
 
-        case MatchingMethod::RANSAC : // extract good match using FunMatRANSAC
+        case MatchingMethod::FunMatRANSAC : // extract good match using FunMatRANSAC
+        {            
+            extractGoodMatches_FunMatRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 1.05,0.995);
+            std::cout<< "FunMat: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
+        }break;
+        case MatchingMethod::HomoRANSAC :
         {
-            std::vector<cv::Point2f> alignedKps, alignedKpsRight;
-            alignKeyPoint(mKeypoints, mKeypointsRight, mMatches, alignedKps, alignedKpsRight);
-            extractGoodMatches_FunMatRANSAC(alignedKps, alignedKpsRight, mMatches, mGoodMatches, 1.05,0.995);
-            std::cout<< "RANSAC: # of good Matches: " << mGoodMatches.size() << " / Matches: " << mMatches.size() << std::endl;
-        }break;           
+            extractGoodMatches_HomographyRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 2000, 1.05,0.995);
+            std::cout<< "Homography: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
 
+        }break;
         case MatchingMethod::DEFAULT : 
         default: 
         {
             // extract goodMatchNNDR
-            std::vector<cv::DMatch> goodMatchNNDR;          
-            extractGoodMatches_NNDR(mDescriptors, mDescriptorsRight, goodMatchNNDR, 0.8);
-            // align keypoint with goodMatchNNDR and extract goodMatch using FunMatRANSAC
-            std::vector<cv::Point2f> alignedKps, alignedKpsRight;
-            alignKeyPoint(mKeypoints, mKeypointsRight, goodMatchNNDR, alignedKps, alignedKpsRight);
-            extractGoodMatches_FunMatRANSAC(alignedKps, alignedKpsRight, goodMatchNNDR, mGoodMatches, 1.05, 0.995);    
-            std::cout<< "DEFAULT: # of good Matches: " << mGoodMatches.size() << " / Matches: " << mMatches.size() << std::endl;
+            V_MATCHES goodMatchesNNDR;          
+            extractGoodMatches_NNDR(dcr1, dcr2, goodMatchesNNDR, 0.8);
+
+            // align keypoint with goodMatchesNNDR and extract goodMatch using FunMatRANSAC
+            extractGoodMatches_FunMatRANSAC(kp1, kp2, goodMatchesNNDR, outputGoodMatches, 1.05, 0.995);    
+            std::cout<< "DEFAULT: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
         }break;        
     }
 }
 
-void Frame::extractGoodMatches_NNDR(const cv::Mat &descriptor1, const cv::Mat &descriptor2, std::vector<cv::DMatch> &output_matches, double ratio_threshold)
+void Frame::extractGoodMatches_NNDR(const DESCRIPTORS &descriptor1, const DESCRIPTORS &descriptor2, V_MATCHES &output_matches, double ratio_threshold)
 {
-    std::vector<std::vector<cv::DMatch>> matches12, matches21;
+    std::vector<V_MATCHES> matches12, matches21;
     mpMatcher->knnMatch( descriptor1, descriptor2, matches12, 2 );
     mpMatcher->knnMatch( descriptor2, descriptor1, matches21, 2 );    
 
     // ratio test proposed by David Lowe paper ratio_threshold = 0.8
-    std::vector<cv::DMatch> good_matches1, good_matches2;
-
-    // Yes , the code here is redundant, it is easy to reconstruct it ....
+    V_MATCHES good_matches1, good_matches2;
     for(int i=0; i < matches12.size(); i++){
         if(matches12[i][0].distance < ratio_threshold * matches12[i][1].distance)
             good_matches1.push_back(matches12[i][0]);
@@ -131,8 +136,11 @@ void Frame::extractGoodMatches_NNDR(const cv::Mat &descriptor1, const cv::Mat &d
 
 }
 
-void Frame::extractGoodMatches_FunMatRANSAC(const std::vector<cv::Point2f> &alinedPoints, const std::vector<cv::Point2f> &alinedPoints2, const std::vector<cv::DMatch> &matches, std::vector<cv::DMatch> &output_matches, double error, double confidence)
+void Frame::extractGoodMatches_FunMatRANSAC(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_MATCHES &output_matches, double error, double confidence)
 {   
+    V_POINT2F alinedPoints, alinedPoints2;
+    alignKeyPoint(kp1, kp2, matches, alinedPoints, alinedPoints2);
+
     int numOfMatches = matches.size();
     std::vector<uchar> inliners(numOfMatches,0);
     cv::Mat H = findFundamentalMat(alinedPoints, alinedPoints2, inliners, cv::FM_RANSAC, error, confidence);
@@ -145,7 +153,25 @@ void Frame::extractGoodMatches_FunMatRANSAC(const std::vector<cv::Point2f> &alin
     }    
 }
 
-void Frame::alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::KeyPoint> &out_kp1, std::vector<cv::KeyPoint> &out_kp2)
+void Frame::extractGoodMatches_HomographyRANSAC(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_MATCHES &output_matches, const int maxIters, const double error, const double confidence)
+{   
+    V_POINT2F alinedPoints, alinedPoints2;
+    alignKeyPoint(kp1, kp2, matches, alinedPoints, alinedPoints2);
+
+    int numOfMatches = matches.size();
+    std::vector<uchar> inliners(numOfMatches,0);
+    // method; cv::RHO(PROSAC), cv::RANSAC
+    cv::Mat H = findHomography(alinedPoints, alinedPoints2, cv::RANSAC, error, inliners, maxIters, confidence);
+
+    output_matches.clear();
+    for(uint k=0; k<inliners.size(); k++)
+    {
+        if (inliners[k] > 0.)        
+            output_matches.push_back(matches[k]);        
+    }    
+}
+
+void Frame::alignKeyPoint(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_KEYPOINTS &out_kp1, V_KEYPOINTS &out_kp2)
 {
     unsigned int numOfMatches = matches.size();
     out_kp1.clear();
@@ -157,7 +183,7 @@ void Frame::alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vecto
     }
 }
 
-void Frame::alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &out_kp1, std::vector<cv::Point2f> &out_kp2)
+void Frame::alignKeyPoint(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_POINT2F &out_kp1, V_POINT2F &out_kp2)
 {
     unsigned int numOfMatches = matches.size();
     out_kp1.clear();
@@ -167,4 +193,36 @@ void Frame::alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vecto
         out_kp1.push_back(kp1[matches[k].queryIdx].pt);
         out_kp2.push_back(kp2[matches[k].trainIdx].pt);
     }
+}
+
+void Frame::alignDescriptor(const DESCRIPTORS &dsctr1, const DESCRIPTORS &dsctr2, const V_MATCHES &matches, DESCRIPTORS &out_dsctr1, DESCRIPTORS &out_dsctr2)
+{
+    unsigned int numOfMatches = matches.size();
+    unsigned int descriptor_size = dsctr1.rows;
+    out_dsctr1=cv::Mat(descriptor_size, numOfMatches, CV_32F);
+    out_dsctr2=cv::Mat(descriptor_size, numOfMatches, CV_32F);
+    for(uint k=0; k<numOfMatches; k++)
+    {
+        // out_dsctr1.push_back(dsctr1[matches[k].queryIdx].pt);
+        // out_dsctr2.push_back(dsctr2[matches[k].trainIdx].pt);
+    }
+}
+
+void Frame::reconstruct3D()
+{
+    //V_POINT2F alinedPoints, alinedPoints2;
+    alignKeyPoint(mKeypoints, mKeypointsRight, mGoodMatches, mAlinedPoints, mAlinedPointsRights);
+    mKeypoints3d.clear();
+    mpPointReconstructor->compute(mAlinedPoints, mAlinedPointsRights, mKeypoints3d);
+}
+
+void Frame::solvePnP()
+{
+    // matching pairs
+    V_POINT3F objectPoints;	// 3d world coordinates
+    V_POINT2F imagePoints;	// 2d image coordinates
+
+    mpPointReconstructor->solvePnP(mKeypoints3d, imagePoints, true);
+
+    
 }

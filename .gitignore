@@ -1,2 +1,3 @@
 build/
+out/
 CMakeLists_.txt

@@ -4,6 +4,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include "zed_point3d.h"
+#include "zed_common.h"
 
 // using namespace std;
 // using namespace cv;
@@ -15,7 +16,8 @@ public:
     {
         DEFAULT=0,
         NNDR=1,
-        RANSAC=2        
+        FunMatRANSAC=2,
+        HomoRANSAC=3        
     };
 
 public:
@@ -25,17 +27,29 @@ public:
     Frame(const Frame &frame);
 
     // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ZParam *param, MatchingMethod method);
+    Frame(const IMAGE &imLeft, const IMAGE &imRight, const double &timeStamp, ZParam *param, MatchingMethod method);
 
     // extract good matches
     void extractGoodMatches(MatchingMethod method);
-    void extractGoodMatches_NNDR(const cv::Mat &descriptor1, const cv::Mat &descriptor2, std::vector<cv::DMatch> &output_matches, double ratio_threshold=NNDR_THRESHOLD);
-    void extractGoodMatches_FunMatRANSAC(const std::vector<cv::Point2f> &alinedPoints, const std::vector<cv::Point2f> &alinedPoints2, const std::vector<cv::DMatch> &matches, std::vector<cv::DMatch> &output_matches, double error=1.1f, double confidence=0.995f);
+    void extractGoodMatches(MatchingMethod method, const DESCRIPTORS &dcr1, const DESCRIPTORS &dcr2, const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &inputMatches, V_MATCHES &outputGoodMatches);
 
-    // get align keyPoints
-    void alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &out_kp1, std::vector<cv::Point2f> &out_kp2);
-    void alignKeyPoint(const std::vector<cv::KeyPoint> &kp1, const std::vector<cv::KeyPoint> &kp2, const std::vector<cv::DMatch> &matches, std::vector<cv::KeyPoint> &out_kp1, std::vector<cv::KeyPoint> &out_kp2);
+    void extractGoodMatches_NNDR(const cv::Mat &descriptor1, const cv::Mat &descriptor2, V_MATCHES &output_matches, double ratio_threshold=NNDR_THRESHOLD);
+    void extractGoodMatches_FunMatRANSAC(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_MATCHES &output_matches, double error=1.1f, double confidence=0.995f);
+    void extractGoodMatches_HomographyRANSAC(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_MATCHES &output_matches, const int maxIters=2000, const double error=1.1f, const double confidence=0.995f);
+    
+    // get aligned keyPoints
+    void alignKeyPoint(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_POINT2F &out_kp1, V_POINT2F &out_kp2);
+    void alignKeyPoint(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const V_MATCHES &matches, V_KEYPOINTS &out_kp1, V_KEYPOINTS &out_kp2);
 
+    // get alined descriptors
+    void alignDescriptor(const DESCRIPTORS &dsctr1, const DESCRIPTORS &dsctr2, const V_MATCHES &matches, DESCRIPTORS &out_dsctr1, DESCRIPTORS &out_dsctr2);
+
+
+    // get 3d points
+    void reconstruct3D();
+
+    //
+    void solvePnP();
 
 public:
     static bool mbInitialComputations;
@@ -43,38 +57,27 @@ public:
     // Frame timestamp.
     double mTimeStamp;
 
-    /*
-    // Calibration matrix and OpenCV distortion parameters.
-    Mat mK;
-    static float fx;
-    static float fy;
-    static float cx;
-    static float cy;
-    static float invfx;
-    static float invfy;
-    Mat mDistCoef;
-
-    // Stereo baseline multiplied by fx.
-    float mbf;
-
-    // Stereo baseline in meters.
-    float mb;
-    */
-
+    // calibration parameters and functions
     static ZParam* mParam;
     static PointReconstructor* mpPointReconstructor;
 
     // image
-    cv::Mat mImgLeft, mImgRight;
+    IMAGE mImgLeft, mImgRight;
 
     // matches between L&R
-    std::vector<cv::DMatch> mMatches, mGoodMatches;
+    V_MATCHES mMatches, mGoodMatches;
 
     // Vector of keypoints
-    std::vector<cv::KeyPoint> mKeypoints, mKeypointsRight;
+    V_KEYPOINTS mKeypoints, mKeypointsRight;
 
-    // ORB descriptor, each row associated to a keypoint.
-    cv::Mat mDescriptors, mDescriptorsRight;
+    // Vector of aliend keypoints
+    V_POINT2F mAlinedPoints, mAlinedPointsRights;
+
+    // ORB descriptor, each row associated to a keypoint. size:[32 x N]
+    DESCRIPTORS mDescriptors, mDescriptorsRight;
+
+    // 3d keypoints
+    V_POINT3F mKeypoints3d;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;
@@ -89,12 +92,10 @@ public:
 
 private:
     // Rotation, translation and camera center
-    cv::Mat mRcw;
+    cv::Mat mRcw; //camera to world ??
     cv::Mat mtcw;
-    cv::Mat mRwc;
+    cv::Mat mRwc; //world to camera?
     cv::Mat mOw; //==mtwc
-
-
 };
 
 

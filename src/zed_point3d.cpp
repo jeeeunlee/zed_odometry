@@ -16,6 +16,38 @@ PointReconstructor::PointReconstructor(ZParam *param)
 
 }
 
+// Estimate Camera position from reference 3d position and matched 2d points 
+void PointReconstructor::solvePnP(const std::vector<cv::Point3f> &keypoints3d, const std::vector<cv::Point2f> &keypoints2d, bool bleft)
+{
+    int numOfMatches = keypoints3d.size();
+    // estimate camera pose
+    cv::Mat rvec, tvec;	// rotation & translation vectors  
+    
+    // set parameters for RANSAC algorithm
+    bool useExtrinsicGuess=false;
+    int iterationsCount=100;
+    float reprojectionError=8.0f;
+    double confidence=0.99;
+    std::vector<uchar> inliners(numOfMatches,0);
+    // int flags=cv::SOLVEPNP_ITERATIVE;
+    cv::Mat CameraMatrix, DistCoeffs;
+    CameraMatrix = bleft ? mKL:mKR;
+    DistCoeffs = bleft ? mDistCoeffsL:mDistCoeffsR;
+
+    cv::solvePnPRansac(keypoints3d, keypoints2d, CameraMatrix, DistCoeffs, rvec, tvec, useExtrinsicGuess, iterationsCount, reprojectionError, confidence, inliners);
+    // cv::solvePnP(objectPoints, imagePoints, CameraMatrix, DistCoeffs, rvec, tvec);
+
+    // extract rotation & translation matrix
+    cv::Mat R;
+    cv::Rodrigues(rvec, R);
+    cv::Mat R_inv = R.inv();
+    cv::Mat P = -R_inv*tvec;
+    double* p = (double *)P.data;
+
+    // camera position
+    printf("x=%lf, y=%lf, z=%lf", p[0], p[1], p[2]);
+}
+
 // Constructor for KeyPoint.
 void PointReconstructor::compute(const std::vector<cv::Point2f> &kpleft, const std::vector<cv::Point2f> &kpright, std::vector<cv::Point3f> &kp3f)
 {
@@ -42,6 +74,12 @@ void PointReconstructor::compute(const std::vector<cv::Point2f> &kpleft, const s
 
         kp3f.push_back(point3f);
     }
+
+    save(kpleft, "/home/lee/catkin_ws/src/zed_odometry/out/left.txt");
+    save(kpright, "/home/lee/catkin_ws/src/zed_odometry/out/right.txt");
+    save(kp3f, "/home/lee/catkin_ws/src/zed_odometry/out/p3.txt");
+    save(output, "/home/lee/catkin_ws/src/zed_odometry/out/output.txt");
+
 }
 
 
@@ -181,3 +219,52 @@ void PointReconstructor::printMatrix(const std::string &caption, const cv::Mat &
     // }    
 }
 
+void PointReconstructor::save(const std::vector<cv::Point2f> &p,  const char *filename, std::_Ios_Openmode type)
+{
+    std::ofstream pFile;
+    pFile.open(filename, type);
+	if (!pFile.is_open())
+		std::cout << "Cannot open data File." << std::endl << std::endl;
+    else
+        std::cout << "save data size = " << p.size() << std::endl;
+
+	for (int i=0;i<p.size();i++)
+	{
+        pFile << std::setprecision(9) << p[i].x << " " << p[i].y;
+		pFile << std::endl;
+	}
+	pFile.close();   
+}
+
+void PointReconstructor::save(const std::vector<cv::Point3f> &p,  const char *filename, std::_Ios_Openmode type)
+{
+        std::ofstream pFile;
+    pFile.open(filename, type);
+	if (!pFile.is_open())
+		std::cout << "Cannot open data File." << std::endl << std::endl;
+
+	for (int i=0;i<p.size();i++)
+	{
+        pFile << std::setprecision(9) << p[i].x << " " << p[i].y << " " << p[i].z;
+		pFile << std::endl;
+	}
+	pFile.close();   
+}
+
+void PointReconstructor::save(const cv::Mat &p,  const char *filename, std::_Ios_Openmode type)
+{
+    std::ofstream pFile;
+    pFile.open(filename, type);
+	if (!pFile.is_open())
+		std::cout << "Cannot open data File." << std::endl << std::endl;
+
+	for (int j=0;j<p.cols;j++)
+	{
+        for (int i=0;i<p.rows;i++)
+            pFile << std::setprecision(9) << p.at<float>(i,j) << "  ";
+
+		pFile << std::endl;
+    }
+	
+	pFile.close();   
+}
