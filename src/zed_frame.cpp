@@ -59,8 +59,8 @@ Frame::Frame(const IMAGE &imLeft, const IMAGE &imRight, const double &timeStamp,
 
     // std::cout << "mKeypoints:" << mKeypoints.size() << std::endl;
     // std::cout << "mKeypointsRight:" << mKeypointsRight.size() << std::endl;
-    std::cout << "mDescriptors:" << mDescriptors.size() << std::endl;
-    std::cout << "mDescriptorsRight:" << mDescriptorsRight.size() << std::endl;
+    // std::cout << "mDescriptors:" << mDescriptors.size() << std::endl;
+    // std::cout << "mDescriptorsRight:" << mDescriptorsRight.size() << std::endl;
     
     // extract good matchs
     extractGoodMatches(method); //MatchingMethod::NNDR, MatchingMethod::RANSAC    
@@ -77,18 +77,18 @@ void Frame::extractGoodMatches(MatchingMethod method, const DESCRIPTORS &dcr1, c
     {
         case MatchingMethod::NNDR : // extract good match using NNDR(Nearest Neighbour Distance Ratio)            
             extractGoodMatches_NNDR(dcr1, dcr2, outputGoodMatches, 0.8);
-            std::cout<< "NNDR: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
+            //std::cout<< "NNDR: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
             break;
 
         case MatchingMethod::FunMatRANSAC : // extract good match using FunMatRANSAC
         {            
-            extractGoodMatches_FunMatRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 1.05,0.995);
-            std::cout<< "FunMat: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
+            extractGoodMatches_FunMatRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 1.02,0.995);
+            //std::cout<< "FunMat: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
         }break;
         case MatchingMethod::HomoRANSAC :
         {
-            extractGoodMatches_HomographyRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 2000, 1.05,0.995);
-            std::cout<< "Homography: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
+            extractGoodMatches_HomographyRANSAC(kp1, kp2, inputMatches, outputGoodMatches, 2000, 1.02,0.995);
+            //std::cout<< "Homography: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
 
         }break;
         case MatchingMethod::DEFAULT : 
@@ -99,8 +99,8 @@ void Frame::extractGoodMatches(MatchingMethod method, const DESCRIPTORS &dcr1, c
             extractGoodMatches_NNDR(dcr1, dcr2, goodMatchesNNDR, 0.8);
 
             // align keypoint with goodMatchesNNDR and extract goodMatch using FunMatRANSAC
-            extractGoodMatches_FunMatRANSAC(kp1, kp2, goodMatchesNNDR, outputGoodMatches, 1.05, 0.995);    
-            std::cout<< "DEFAULT: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
+            extractGoodMatches_FunMatRANSAC(kp1, kp2, goodMatchesNNDR, outputGoodMatches, 1.02, 0.995);    
+            //std::cout<< "DEFAULT: # of good Matches: " << outputGoodMatches.size() << " / Matches: " << inputMatches.size() << std::endl;
         }break;        
     }
 }
@@ -193,6 +193,16 @@ void Frame::alignKeyPoint(const V_KEYPOINTS &kp1, const V_KEYPOINTS &kp2, const 
         out_kp1.push_back(kp1[matches[k].queryIdx].pt);
         out_kp2.push_back(kp2[matches[k].trainIdx].pt);
     }
+
+    std::string filepath = "/home/lee/catkin_ws/src/zed_odometry/out/";
+    std::ostringstream ost1, ost2;
+    ost1 << filepath << "feature2d_l_" << mnId << ".txt";
+    ost2 << filepath << "feature2d_r_" << mnId << ".txt";
+
+    std::cout<< ost1.str() << std::endl;
+
+    mpPointReconstructor->save(out_kp1, ost1.str().c_str());
+    mpPointReconstructor->save(out_kp2, ost2.str().c_str());
 }
 
 void Frame::alignDescriptor(const DESCRIPTORS &dsctr1, const DESCRIPTORS &dsctr2, const V_MATCHES &matches, DESCRIPTORS &out_dsctr1, DESCRIPTORS &out_dsctr2)
@@ -210,19 +220,56 @@ void Frame::alignDescriptor(const DESCRIPTORS &dsctr1, const DESCRIPTORS &dsctr2
 
 void Frame::reconstruct3D()
 {
-    //V_POINT2F alinedPoints, alinedPoints2;
-    alignKeyPoint(mKeypoints, mKeypointsRight, mGoodMatches, mAlinedPoints, mAlinedPointsRights);
+    V_POINT2F alinedPoints, alinedPoints2;
+    alignKeyPoint(mKeypoints, mKeypointsRight, mGoodMatches, alinedPoints, alinedPoints2);
     mKeypoints3d.clear();
-    mpPointReconstructor->compute(mAlinedPoints, mAlinedPointsRights, mKeypoints3d);
+    mpPointReconstructor->compute(alinedPoints, alinedPoints2, mKeypoints3d);
+
+    // process : eliminate points that have large reprojection error  
+    V_POINT2F reproPoints, reproPoints2;
+    mpPointReconstructor->reprojection(mKeypoints3d, reproPoints, reproPoints2);
+
+    uint numOfPoints = reproPoints.size();
+    float dL, dR;
+    for(uint i=0; i<numOfPoints; i++){
+        dL = cv::norm(reproPoints[i] - alinedPoints[i]);
+        dR = cv::norm(reproPoints2[i] - alinedPoints2[i]);
+        // std::cout<<dL << ","<<dR << "/";
+    }
+    // std::cout<<std::endl;;
+    
 }
 
-void Frame::solvePnP()
-{
+void Frame::getOdometryUsingPnP(const Frame &_frame_prev)
+{  
+    // extract goodMatches btw t-1 and t left image
+    V_MATCHES matchesLeft;
+    mpMatcher->match( _frame_prev.mDescriptors, mDescriptors, matchesLeft );
+    V_MATCHES goodMatchesPrevLeft;
+    extractGoodMatches(DEFAULT, _frame_prev.mDescriptors, mDescriptors, _frame_prev.mKeypoints, mKeypoints, matchesLeft, goodMatchesPrevLeft);
+    
     // matching pairs
+    // same keypoint in t-1 left image if _frame_prev.mGoodMatches.queryIdx == goodMatchesPrevLeft.queryIdx
     V_POINT3F objectPoints;	// 3d world coordinates
     V_POINT2F imagePoints;	// 2d image coordinates
 
-    mpPointReconstructor->solvePnP(mKeypoints3d, imagePoints, true);
-
+    uint numOfMatches = goodMatchesPrevLeft.size();
+    uint numOfgoodMatches = _frame_prev.mGoodMatches.size();
+    for(uint k=0; k<numOfMatches; k++)
+    {
+        for(uint j=0; j<numOfgoodMatches; j++)
+        {
+            if(_frame_prev.mGoodMatches[j].queryIdx == goodMatchesPrevLeft[k].queryIdx)
+            {
+                objectPoints.push_back(_frame_prev.mKeypoints3d[j]);
+                imagePoints.push_back(mKeypoints[goodMatchesPrevLeft[k].trainIdx].pt);
+                mGoodMatchesPrevLeft.push_back(goodMatchesPrevLeft[k]);
+            }
+        }
+    }
+    //V_MATCHES MatchesRight;
+    //_frame_prev.mpMatcher->match( _frame_prev.mDescriptorsRight, mDescriptorsRight, MatchesRight );
+    // std::cout << "solvePnP: matches btw t-1,t : " << numOfMatches << " / t-1 3dPoint : " << numOfgoodMatches << " / final :" << imagePoints.size() << std::endl;
     
+    mpPointReconstructor->solvePnP(objectPoints, imagePoints, true);    
 }

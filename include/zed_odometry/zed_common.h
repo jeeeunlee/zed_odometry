@@ -14,4 +14,7 @@ typedef std::vector<cv::DMatch> V_MATCHES;
 typedef cv::Mat IMAGE;
 typedef cv::Mat DESCRIPTORS;
 
+
+
+
 #endif

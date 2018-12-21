@@ -13,11 +13,23 @@ using namespace cv;
 // using namespace ORB_ODOMETRY;
 
 class Frame;
+static int mNIter=0;
+static int mNIter_residual=0;
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps);
 void DrawImages(const string &title, const Frame &_frame);
+void DrawImages(const string &title, const Frame &_frame_prev, const Frame &_frame);
 void getOdometry(Frame &_frame_prev, Frame &_frame);
+bool IterationCheck(int period); 
+
+bool IterationCheck(int period){
+    mNIter++; mNIter_residual++;
+    while(mNIter_residual>=period)
+        mNIter_residual -period;    
+    return (mNIter_residual==0);
+}
+
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps)
@@ -67,7 +79,21 @@ void DrawImages(const string &title, const Frame &_frame){
     imshow ( title.c_str(), img_goodmatch );
 }
 
+void DrawImages(const string &title, const Frame &_frame_prev, const Frame &_frame){
+
+    // Mat img;
+    // drawMatches ( _frame.mImgLeft, _frame.mKeypoints, _frame.mImgRight, _frame.mKeypointsRight, _frame.mMatches, img );
+    // imshow ( "matches", img );
+
+    Mat img_goodmatch;
+    drawMatches ( _frame_prev.mImgLeft, _frame_prev.mKeypoints, _frame.mImgLeft, _frame.mKeypoints, _frame.mGoodMatchesPrevLeft, img_goodmatch );
+    namedWindow( title.c_str(), WINDOW_NORMAL);
+    resizeWindow( title.c_str(), 1200, 400);
+    imshow ( title.c_str(), img_goodmatch );
+}
+
 // #################### main #################### //
+
 int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image file path
 {
     // set param
@@ -95,8 +121,9 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
     // Main loop
     Mat imLeft, imRight;
     Frame mCurrentFrame, mPrevFrame;
-    
-    for(int ni=0; ni<nImages; ni++)
+    uint istart = 80;
+    uint iend = 500;
+    for(int ni=istart; ni<iend; ni++)
     {
         // Read left and right images from file
         /*  CV_LOAD_IMAGE_COLOR : 이미지 파일을 Color로 읽어들입니다. 투명한 부분은 무시되며, Default값입니다.
@@ -108,24 +135,27 @@ int main ( int argc, char** argv ) // argv[1]=calibration yaml, argv[2]=image fi
         mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::NNDR);
         DrawImages("NNDR", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::FunMatRANSAC);
-        DrawImages("Fund", mCurrentFrame);
+        // mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::FunMatRANSAC);
+        // DrawImages("Fund", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::HomoRANSAC);
-        DrawImages("Homo", mCurrentFrame);
+        // mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::HomoRANSAC);
+        // DrawImages("Homo", mCurrentFrame);
 
-        mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::DEFAULT);
-        DrawImages("DEFAULT", mCurrentFrame);
+        // mCurrentFrame = Frame(imLeft, imRight, vTimestamps[ni], param, Frame::MatchingMethod::DEFAULT);        
+        // DrawImages("DEFAULT", mCurrentFrame);
 
-        waitKey(0);
+        if(ni>istart){
+            // if(IterationCheck(1))
+               std::cout<<"iteration[ " << ni << " ], ";
 
-        if(ni>0){
             getOdometry(mPrevFrame, mCurrentFrame);
-        }
-
+            DrawImages("Prev-Current", mPrevFrame, mCurrentFrame);
+        }      
+        
+        waitKey(0);
+        
         mPrevFrame=mCurrentFrame;
-    }   
-    
+    }       
     return 0;
 }
 
@@ -133,17 +163,12 @@ void getOdometry(Frame &_frame_prev, Frame &_frame)
 {
     // step1: get 3D position of GoodMatched KeyPoints in _frame_prev & _frame
     _frame_prev.reconstruct3D();
-    _frame.reconstruct3D();
+    // _frame.reconstruct3D();
 
     // step2: matches LeftImage of _frame_prev & _frame for good matched keyPoints
-    V_MATCHES MatchesLeft;
-    _frame_prev.mpMatcher->match( _frame_prev.mDescriptors, _frame.mDescriptors, MatchesLeft );
-
-    V_MATCHES MatchesRight;
-    _frame_prev.mpMatcher->match( _frame_prev.mDescriptorsRight, _frame.mDescriptorsRight, MatchesRight );
 
     // step3: get homography matrix using ransac algorithm / BA
-    
+    _frame.getOdometryUsingPnP(_frame_prev);
 
 }
 

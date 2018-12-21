@@ -49,7 +49,7 @@ public:
     void reconstruct3D();
 
     //
-    void solvePnP();
+    void getOdometryUsingPnP(const Frame &_frame_prev);
 
 public:
     static bool mbInitialComputations;
@@ -67,11 +67,14 @@ public:
     // matches between L&R
     V_MATCHES mMatches, mGoodMatches;
 
+    // matches with previous frame
+    V_MATCHES mGoodMatchesPrevLeft, mGoodMatchesPrevRight;
+
     // Vector of keypoints
     V_KEYPOINTS mKeypoints, mKeypointsRight;
 
     // Vector of aliend keypoints
-    V_POINT2F mAlinedPoints, mAlinedPointsRights;
+    // V_POINT2F mAlinedPoints, mAlinedPointsRights;
 
     // ORB descriptor, each row associated to a keypoint. size:[32 x N]
     DESCRIPTORS mDescriptors, mDescriptorsRight;

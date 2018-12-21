@@ -34,15 +34,18 @@ public:
     void compute(const V_POINT2F &kpleft, const V_POINT2F &kpright, V_POINT3F &kp3f);
 
     // compute undistortKeyPoint
-    V_KEYPOINTS UndistortKeyPoints(const V_KEYPOINTS &mvKeys, const CALIBINFO &calibinfo, const cv::Mat &distCoeff);
+    V_POINT2F UndistortKeyPoints(const V_POINT2F &mvKeys, const cv::Mat &K, const cv::Mat &distCoeff);
+
+    // reproject 3D point to 2D image
+    void reprojection(const V_POINT3F &kp3f, V_POINT2F &reproj_kpleft, V_POINT2F &reproj_kpright);
 
     // get Calibration information
     void getCalibInfo();
 
     void printMatrix(const std::string &caption, const cv::Mat &MAT);
-    void save(const V_POINT2F &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
-    void save(const V_POINT3F &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
-    void save(const cv::Mat &p,  const char *filename, std::_Ios_Openmode type = std::ios::app);
+    void save(const V_POINT2F &p,  const char *filename, std::_Ios_Openmode type = std::ios::out);
+    void save(const V_POINT3F &p,  const char *filename, std::_Ios_Openmode type = std::ios::out);
+    void save(const cv::Mat &p,  const char *filename, std::_Ios_Openmode type = std::ios::out);
      
 
 public:
