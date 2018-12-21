@@ -1,0 +1,23 @@
+xleft = load('left.txt');
+xright = load('right.txt');
+X = load('p3.txt');
+
+n = min([length(xleft), length(xright), length(X)]);
+
+% ZED_HD
+CamInfo = getCameraInfo('zed_HD');
+
+
+ProjectionMat1 = CamInfo.K1 * CamInfo.T1;
+ProjectionMat2 = CamInfo.K2 * CamInfo.T2;
+
+
+Xbar = [X'; ones(1,n)];
+xleft_projected = (ProjectionMat1*Xbar)';
+xleft_projected = xleft_projected(:,1:2)./xleft_projected(:,3);
+xright_projected = (ProjectionMat2*Xbar)';
+xright_projected = xright_projected(:,1:2)./xright_projected(:,3);
+
+% [xleft, xleft_projected]
+% [xright, xright_projected]
+plot()
